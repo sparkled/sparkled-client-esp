@@ -1,139 +1,149 @@
+#include <ESP.h>
 #include <WiFi.h>
 #include <WiFiUdp.h>
 #include <FastLED.h>
 
-// WiFi network name and password:
-const char * networkName = "YOUR_NETWORK";
-const char * networkPswd = "YOUR_PASSWORD";
+// Network configuration
+const String NETWORK_SSID = "YOUR_NETWORK";
+const String NETWORK_PASSWORD = "YOUR_PASSWORD";
+const String SERVER_IP_ADDRESS = "YOUR_SERVER_IP_ADDRESS";
+const uint16_t SERVER_UDP_PORT = 12345;
+const uint16_t MAX_PACKET_WAIT_MS = 5000;
 
-const char * udpAddress = "YOUR_UDP_ADDRESS";
-const int udpPort = 12345;
+// ESP32 configuration
+const uint8_t CLOCK_PIN = 18;
+const uint8_t DATA_PIN = 19;
+const CRGB STATUS_CONNECTING = CRGB::Orange;
+const CRGB STATUS_RESTARTING = CRGB::Red;
 
-#define MAX_FPS 60
-#define MILLIS_PER_FRAME 1000 / MAX_FPS
+// Animation configuration
+const uint8_t MAX_FPS = 60;
+const uint8_t MILLIS_PER_FRAME = 1000 / MAX_FPS;
 
-#define DATA_PIN 18
-#define CLOCK_PIN 19
-#define LED_COUNT 50
-#define BYTES_PER_LED 3
-#define LED_BUFFER_SIZE LED_COUNT * BYTES_PER_LED
+// LED strip configuration
+const uint8_t BYTES_PER_LED = 3;
+const uint16_t LED_COUNT = 150;
+const uint16_t LED_BUFFER_SIZE = BYTES_PER_LED * LED_COUNT;
+const uint16_t STATUS_LED_COUNT = 3;
 
-uint8_t packetBuffer[LED_BUFFER_SIZE];
-
-boolean connected = false;
+// Shared application state
 WiFiUDP udp;
-CRGBArray<LED_COUNT> leds;
+const CRGBArray<LED_COUNT> leds;
+uint8_t packetBuffer[LED_BUFFER_SIZE];
+boolean connected = false;
+uint32_t lastSuccessfulPacketTime = millis();
 
 void setup() {
   Serial.begin(115200);
+  
   pinMode(DATA_PIN, OUTPUT);
-  FastLED.addLeds<APA102, DATA_PIN, CLOCK_PIN>(leds, LED_COUNT).setCorrection(TypicalSMD5050);
-
-  //Connect to the WiFi network
-  connectToWiFi(networkName, networkPswd);
+  pinMode(CLOCK_PIN, OUTPUT);
+  FastLED.addLeds<APA102, DATA_PIN, CLOCK_PIN, BGR>(leds, LED_COUNT).setCorrection(TypicalSMD5050);
+  
+  connectToWiFi(NETWORK_SSID, NETWORK_PASSWORD);
 }
 
 void loop() {
-  long ms = millis();
+  uint32_t ms = millis();
 
   if (!connected) {
     return;
   }
 
-  Serial.println("Starting packet.");
-  if (!udp.beginPacket(udpAddress, udpPort)) {
-    Serial.println("Failed to begin packet.");
-    delay(500);
+  if (millis() - lastSuccessfulPacketTime > MAX_PACKET_WAIT_MS) {
+    Serial.println("No packets received in " + String(MAX_PACKET_WAIT_MS) + "ms, restarting.");
+    showStatus(STATUS_RESTARTING);
+    delay(1000);
+    ESP.restart();
+    return;
+  }
+
+  if (!udp.beginPacket(SERVER_IP_ADDRESS.c_str(), SERVER_UDP_PORT)) {
+    Serial.println("beginPacket() failed.");
     return;
   }
   udp.printf("GF:P1");
   udp.endPacket();
 
-  int packetSize = 0;
+  uint16_t packetSize = 0;
   do {
     packetSize = udp.parsePacket();
 
-    if (millis() - ms > 5 * MILLIS_PER_FRAME) {
-      Serial.println("Lost frame, skipping.");
-      return; // Lost frame, skip.
+    uint16_t waitMillis = millis() - ms;
+    if (waitMillis > 10 * MILLIS_PER_FRAME) {
+      Serial.println("Lost frame after " + String(waitMillis) + " ms, skipping.");
+      return;
     }
   } while (packetSize == 0);
 
-  Serial.print("Packet size: ");
-  Serial.println(packetSize);
-
   udp.read(packetBuffer, LED_BUFFER_SIZE);
+  lastSuccessfulPacketTime = millis();
 
-  Serial.println("Read into packetBuffer.");
-  renderLeds();
-//  Serial.println("Rendered LEDs.");
+  if (packetSize == LED_BUFFER_SIZE) {
+    renderLeds();
+  } else {
+    Serial.println("packetSize does not equal LED_BUFFER_SIZE, skipping.");
+    fillLeds(CRGB::Black);
+  }
 
-  int elapsedMs = millis() - ms;
+  uint16_t elapsedMs = millis() - ms;
   if (elapsedMs < MILLIS_PER_FRAME) {
     delay(MILLIS_PER_FRAME - elapsedMs);
   }
 }
 
-void clearLeds() {
-  for (int i = 0; i < LED_COUNT; i++) {
-    leds[i] = CRGB::Black;
-  }
-
-  FastLED.show();
-}
-
 void renderLeds() {
-  for (int i = 0; i < LED_COUNT; i++) {
-    int bufferIndex = i * BYTES_PER_LED;
+  for (uint16_t i = 0; i < LED_COUNT; i++) {
+    uint16_t bufferIndex = i * BYTES_PER_LED;
     leds[i].setRGB(packetBuffer[bufferIndex], packetBuffer[bufferIndex + 1], packetBuffer[bufferIndex + 2]);
   }
 
   FastLED.show();
 }
 
-void connectToWiFi(const char * ssid, const char * pwd) {
-  Serial.println("Connecting to WiFi network: " + String(ssid));
+void connectToWiFi(const String ssid, const String pwd) {
+  Serial.println("Connecting to network: " + ssid + "...");
+  showStatus(STATUS_CONNECTING);
 
-  // delete old config
   WiFi.disconnect(true);
-  //register event handler
   WiFi.onEvent(WiFiEvent);
+  WiFi.begin(ssid.c_str(), pwd.c_str());
 
-  //Initiate connection
-  WiFi.begin(ssid, pwd);
-
-  Serial.println("Waiting for WIFI connection...");
+  Serial.println("Waiting for network connection...");
 }
 
-//wifi event handler
+void showStatus(CRGB statusColor) {
+  fillLeds(CRGB::Black);
+  for (uint8_t i = 0; i < STATUS_LED_COUNT; i++) {
+    leds[i] = statusColor;
+  }
+  FastLED.show();
+}
+
+void fillLeds(CRGB color) {
+  fill_solid(leds, LED_COUNT, color);
+  FastLED.show();
+}
+
 void WiFiEvent(WiFiEvent_t event) {
-  Serial.println("Event: " + event);
   switch (event) {
     case SYSTEM_EVENT_STA_CONNECTED:
-      Serial.println("Connected, waiting for IP address.");
+      Serial.println("Connected to network, waiting for IP address...");
       break;
     case SYSTEM_EVENT_STA_GOT_IP:
       if (WiFi.localIP() == IPAddress(0, 0, 0, 0)) {
-        Serial.println("Got 0.0.0.0");
-        return;
+        Serial.println("Got IP Address of 0.0.0.0");
+      } else {
+        Serial.println("IP address: " + WiFi.localIP());
+        udp.begin(WiFi.localIP(), SERVER_UDP_PORT);
+        connected = true;
+        lastSuccessfulPacketTime = millis();
       }
-      //When connected set
-      Serial.print("IP address: ");
-      Serial.println(WiFi.localIP());
-      //initializes the UDP state
-      //This initializes the transfer buffer
-      udp.begin(WiFi.localIP(), udpPort);
-      connected = true;
       break;
     case SYSTEM_EVENT_STA_DISCONNECTED:
-      Serial.println("WiFi lost connection, attempting to reconnect.");
+      Serial.println("Lost network connection, attempting to reconnect...");
       connected = false;
-      connectToWiFi(networkName, networkPswd);
-      break;
-    default:
-      Serial.print("Some other event.");
-      Serial.println(event);
-      delay(100);
+      connectToWiFi(NETWORK_SSID, NETWORK_PASSWORD);
       break;
   }
 }
