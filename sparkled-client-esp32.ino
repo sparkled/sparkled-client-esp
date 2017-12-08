@@ -11,8 +11,8 @@ const uint16_t SERVER_UDP_PORT = 12345;
 const uint16_t MAX_PACKET_WAIT_MS = 5000;
 
 // ESP32 configuration
-const uint8_t CLOCK_PIN = 18;
-const uint8_t DATA_PIN = 19;
+const uint8_t CLOCK_PIN = 12;
+const uint8_t DATA_PIN = 13;
 const CRGB STATUS_CONNECTING = CRGB::Orange;
 const CRGB STATUS_RESTARTING = CRGB::Red;
 
