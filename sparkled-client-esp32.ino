@@ -55,7 +55,7 @@ void loop() {
     showStatus(STATUS_RESTARTING);
     delay(1000);
     ESP.restart();
-    return;
+    while (true);
   }
 
   if (!udp.beginPacket(SERVER_IP_ADDRESS.c_str(), SERVER_UDP_PORT)) {
