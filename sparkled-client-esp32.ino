@@ -10,10 +10,17 @@ const CRGBArray<LED_COUNT> leds;
 uint8_t packetBuffer[LED_BUFFER_SIZE];
 boolean connected = false;
 uint32_t lastSuccessfulPacketTime = millis();
+uint8_t brightness = UINT8_MAX;
 
 void setup() {
   Serial.begin(115200);
-  FastLED.addLeds<WS2812B, DATA_PIN, GRB>(leds, LED_COUNT).setCorrection(TypicalSMD5050);
+
+  #if CLOCK_PIN == -1
+  FastLED.addLeds<CHIPSET, DATA_PIN, RGB_ORDER>(leds, LED_COUNT).setCorrection(TypicalSMD5050);
+  #else
+  FastLED.addLeds<CHIPSET, DATA_PIN, CLOCK_PIN, RGB_ORDER>(leds, LED_COUNT).setCorrection(TypicalSMD5050);
+  #endif
+
   connectToWiFi(NETWORK_SSID, NETWORK_PASSWORD);
 }
 
@@ -54,6 +61,7 @@ void loop() {
   lastSuccessfulPacketTime = millis();
 
   if (packetSize == LED_BUFFER_SIZE) {
+    adjustBrightness();
     renderLeds();
   } else {
     Serial.println("packetSize does not equal LED_BUFFER_SIZE, skipping.");
@@ -64,6 +72,19 @@ void loop() {
   if (elapsedMs < MILLIS_PER_FRAME) {
     delay(MILLIS_PER_FRAME - elapsedMs);
   }
+}
+
+void adjustBrightness() {
+  int16_t newBrightness = map(packetBuffer[0] >> 4, 0, 15, 0, UINT8_MAX);
+
+  // The ESP32 core defines min() and max() with an underscore prefix to avoid code conflits.
+  if (brightness < newBrightness) {
+    brightness = _min(UINT_MAX, brightness + 1);
+  } else if (brightness > newBrightness) {
+    brightness = _max(0, brightness - 1);
+  }
+
+  FastLED.setBrightness(brightness);
 }
 
 void renderLeds() {

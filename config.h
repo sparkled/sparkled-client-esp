@@ -19,7 +19,9 @@
 #define TARGET_FPS 60
 
 // ESP32 configuration
-#define CLOCK_PIN 12
+#define CHIPSET WS2812B
+#define CLOCK_PIN -1 // Leave as -1 if you are using a clockless chipset.
 #define DATA_PIN 13
+#define RGB_ORDER GRB
 
 #endif CONFIG_H
