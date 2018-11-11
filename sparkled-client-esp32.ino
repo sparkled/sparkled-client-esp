@@ -24,8 +24,8 @@ void loop() {
     return;
   }
 
-  if (millis() - lastSuccessfulPacketTime > MAX_PACKET_WAIT_MS) {
-    Serial.println("No packets received in " + String(MAX_PACKET_WAIT_MS) + "ms, restarting.");
+  if (millis() - lastSuccessfulPacketTime > MAX_CONNECTION_LOSS_MS) {
+    Serial.println("No packets received in " + String(MAX_CONNECTION_LOSS_MS) + "ms, restarting.");
     showStatus(STATUS_RESTARTING);
     delay(1000);
     ESP.restart();
@@ -44,7 +44,7 @@ void loop() {
     packetSize = udp.parsePacket();
 
     uint16_t waitMillis = millis() - ms;
-    if (waitMillis > 3 * MILLIS_PER_FRAME) {
+    if (waitMillis > PACKET_TIMEOUT_MS) {
       Serial.println("Lost frame after " + String(waitMillis) + " ms, skipping.");
       return;
     }
