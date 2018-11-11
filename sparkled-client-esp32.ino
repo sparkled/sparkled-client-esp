@@ -1,31 +1,8 @@
+#include "constants.h"
 #include <ESP.h>
 #include <WiFi.h>
 #include <WiFiUdp.h>
 #include <FastLED.h>
-
-// Network configuration
-const String NETWORK_SSID = "YOUR_NETWORK";
-const String NETWORK_PASSWORD = "YOUR_PASSWORD";
-const String SERVER_IP_ADDRESS = "YOUR_SERVER_IP_ADDRESS";
-const uint16_t SERVER_UDP_PORT = 12345;
-const uint16_t MAX_PACKET_WAIT_MS = 5000;
-
-// ESP32 configuration
-const uint8_t CLOCK_PIN = 12;
-const uint8_t DATA_PIN = 13;
-const CRGB STATUS_CONNECTING = CRGB::Orange;
-const CRGB STATUS_RESTARTING = CRGB::Red;
-
-// Animation configuration
-const uint8_t MAX_FPS = 60;
-const uint8_t MILLIS_PER_FRAME = 1000 / MAX_FPS;
-
-// LED strip configuration
-const uint8_t BYTES_PER_LED = 3;
-const uint16_t LED_COUNT = 150;
-const uint8_t HEADER_SIZE = 1;
-const uint16_t LED_BUFFER_SIZE = HEADER_SIZE + BYTES_PER_LED * LED_COUNT;
-const uint16_t STATUS_LED_COUNT = 3;
 
 // Shared application state
 WiFiUDP udp;
@@ -55,7 +32,7 @@ void loop() {
     while (true);
   }
 
-  if (!udp.beginPacket(SERVER_IP_ADDRESS.c_str(), SERVER_UDP_PORT)) {
+  if (!udp.beginPacket(SERVER_IP_ADDRESS, SERVER_UDP_PORT)) {
     Serial.println("beginPacket() failed.");
     return;
   }
