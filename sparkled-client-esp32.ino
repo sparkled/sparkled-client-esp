@@ -43,7 +43,7 @@ void loop() {
     Serial.println("beginPacket() failed.");
     return;
   }
-  udp.printf("GF:P1");
+  udp.printf(GET_FRAME_COMMAND);
   udp.endPacket();
 
   uint16_t packetSize = 0;

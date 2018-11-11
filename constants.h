@@ -8,6 +8,9 @@
 #define PACKET_TIMEOUT_MS 50
 #define MAX_CONNECTION_LOSS_MS 5000
 
+// Command constants
+#define GET_FRAME_COMMAND "GF:" STAGE_PROP_CODE
+
 // Status constants
 #define STATUS_LED_COUNT 3
 #define STATUS_CONNECTING CRGB::Orange
