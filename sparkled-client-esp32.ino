@@ -67,7 +67,7 @@ void loop() {
     packetSize = udp.parsePacket();
 
     uint16_t waitMillis = millis() - ms;
-    if (waitMillis > 10 * MILLIS_PER_FRAME) {
+    if (waitMillis > 3 * MILLIS_PER_FRAME) {
       Serial.println("Lost frame after " + String(waitMillis) + " ms, skipping.");
       return;
     }
