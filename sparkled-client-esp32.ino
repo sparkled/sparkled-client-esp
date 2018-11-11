@@ -23,7 +23,8 @@ const uint8_t MILLIS_PER_FRAME = 1000 / MAX_FPS;
 // LED strip configuration
 const uint8_t BYTES_PER_LED = 3;
 const uint16_t LED_COUNT = 150;
-const uint16_t LED_BUFFER_SIZE = BYTES_PER_LED * LED_COUNT;
+const uint8_t HEADER_SIZE = 1;
+const uint16_t LED_BUFFER_SIZE = HEADER_SIZE + BYTES_PER_LED * LED_COUNT;
 const uint16_t STATUS_LED_COUNT = 3;
 
 // Shared application state
@@ -35,11 +36,7 @@ uint32_t lastSuccessfulPacketTime = millis();
 
 void setup() {
   Serial.begin(115200);
-  
-  pinMode(DATA_PIN, OUTPUT);
-  pinMode(CLOCK_PIN, OUTPUT);
-  FastLED.addLeds<APA102, DATA_PIN, CLOCK_PIN, BGR>(leds, LED_COUNT).setCorrection(TypicalSMD5050);
-  
+  FastLED.addLeds<WS2812B, DATA_PIN, GRB>(leds, LED_COUNT).setCorrection(TypicalSMD5050);
   connectToWiFi(NETWORK_SSID, NETWORK_PASSWORD);
 }
 
@@ -94,7 +91,7 @@ void loop() {
 
 void renderLeds() {
   for (uint16_t i = 0; i < LED_COUNT; i++) {
-    uint16_t bufferIndex = i * BYTES_PER_LED;
+    uint16_t bufferIndex = HEADER_SIZE + (i * BYTES_PER_LED);
     leds[i].setRGB(packetBuffer[bufferIndex], packetBuffer[bufferIndex + 1], packetBuffer[bufferIndex + 2]);
   }
 
