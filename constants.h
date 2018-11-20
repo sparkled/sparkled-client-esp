@@ -14,7 +14,6 @@
 // Status constants
 #define STATUS_LED_COUNT 3
 #define STATUS_CONNECTING CRGB::Orange
-#define STATUS_RESTARTING CRGB::Red
 
 // Animation constants
 #define MILLIS_PER_FRAME 1000 / TARGET_FPS

@@ -33,8 +33,6 @@ void loop() {
 
   if (millis() - lastSuccessfulPacketTime > MAX_CONNECTION_LOSS_MS) {
     Serial.println("No packets received in " + String(MAX_CONNECTION_LOSS_MS) + "ms, restarting.");
-    showStatus(STATUS_RESTARTING);
-    delay(1000);
     ESP.restart();
     while (true);
   }
