@@ -9,7 +9,7 @@
 #define MAX_CONNECTION_LOSS_MS 5000
 
 // Command constants
-#define GET_FRAME_COMMAND "GF:" STAGE_PROP_CODE
+#define GET_FRAME_COMMAND "GF:"
 
 // Status constants
 #define STATUS_LED_COUNT 3
