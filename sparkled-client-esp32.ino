@@ -61,7 +61,7 @@ void renderFrame(String stagePropCode, uint16_t startLed, uint16_t endLed) {
 
     uint16_t waitMillis = millis() - ms;
     if (waitMillis > PACKET_TIMEOUT_MS) {
-      Serial.println("Lost frame after " + PACKET_TIMEOUT_MS + " ms, skipping.");
+      Serial.println("Lost frame after " + String(PACKET_TIMEOUT_MS) + " ms, skipping.");
       return;
     }
   } while (packetSize == 0);
