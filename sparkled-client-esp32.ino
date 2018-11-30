@@ -6,7 +6,7 @@
 
 // Shared application state
 WiFiUDP udp;
-const CRGBArray<LED_COUNT> leds;
+CRGB leds[STAGE_PROP_COUNT][LED_COUNT];
 uint8_t packetBuffer[LED_BUFFER_SIZE];
 boolean connected = false;
 uint32_t lastSuccessfulPacketTime = millis();
@@ -16,9 +16,9 @@ void setup() {
   Serial.begin(115200);
 
   #if CLOCK_PIN == -1
-  FastLED.addLeds<CHIPSET, DATA_PIN, RGB_ORDER>(leds, LED_COUNT).setCorrection(TypicalSMD5050);
+  FastLED.addLeds<CHIPSET, DATA_PIN, RGB_ORDER>(leds[0], TOTAL_LED_COUNT).setCorrection(TypicalSMD5050);
   #else
-  FastLED.addLeds<CHIPSET, DATA_PIN, CLOCK_PIN, RGB_ORDER>(leds, LED_COUNT).setCorrection(TypicalSMD5050);
+  FastLED.addLeds<CHIPSET, DATA_PIN, CLOCK_PIN, RGB_ORDER>(leds[0], TOTAL_LED_COUNT).setCorrection(TypicalSMD5050);
   #endif
 
   connectToWiFi(NETWORK_SSID, NETWORK_PASSWORD);
@@ -31,46 +31,46 @@ void loop() {
     return;
   }
 
+  checkForNetworkFailure();
+
+  for (uint8_t i = 0; i < STAGE_PROP_COUNT; i++) {
+    requestFrame(STAGE_PROP_CODES[i], i);
+  }
+
+  while (millis() - ms < MILLIS_PER_FRAME) {
+    receiveFrame();
+  }
+}
+
+void checkForNetworkFailure() {
   if (millis() - lastSuccessfulPacketTime > MAX_CONNECTION_LOSS_MS) {
     Serial.println("No packets received in " + String(MAX_CONNECTION_LOSS_MS) + "ms, restarting.");
     ESP.restart();
     while (true);
   }
-
-  renderFrame(STAGE_PROP_CODE, 0, LED_COUNT);
-
-  uint16_t elapsedMs = millis() - ms;
-  if (elapsedMs < MILLIS_PER_FRAME) {
-    delay(MILLIS_PER_FRAME - elapsedMs);
-  }
 }
 
-void renderFrame(String stagePropCode, uint16_t startLed, uint16_t endLed) {
+void requestFrame(String stagePropCode, uint8_t clientId) {
   uint32_t ms = millis();
 
   if (!udp.beginPacket(SERVER_IP_ADDRESS, SERVER_UDP_PORT)) {
     Serial.println("beginPacket() failed.");
     return;
   }
-  udp.printf(String(GET_FRAME_COMMAND + stagePropCode).c_str());
+  udp.printf(String(GET_FRAME_COMMAND + stagePropCode + ":" + clientId).c_str());
   udp.endPacket();
+}
 
-  uint16_t packetSize = 0;
-  do {
-    packetSize = udp.parsePacket();
+void receiveFrame() {
+  uint32_t ms = millis();
 
-    uint16_t waitMillis = millis() - ms;
-    if (waitMillis > PACKET_TIMEOUT_MS) {
-      Serial.println("Lost frame after " + String(PACKET_TIMEOUT_MS) + " ms, skipping.");
-      return;
-    }
-  } while (packetSize == 0);
-
-  udp.read(packetBuffer, LED_BUFFER_SIZE);
-  adjustBrightness();
-  renderLeds(packetSize, startLed, endLed);
-  
-  lastSuccessfulPacketTime = millis();
+  uint16_t packetSize = udp.parsePacket();
+  if (packetSize > 0) {
+    udp.read(packetBuffer, LED_BUFFER_SIZE);
+    adjustBrightness();
+    renderLeds(packetSize);
+    lastSuccessfulPacketTime = millis(); 
+  }
 }
 
 void adjustBrightness() {
@@ -79,21 +79,26 @@ void adjustBrightness() {
 
   // The ESP32 core defines min() and max() with an underscore prefix to avoid code conflits.
   if (brightness < newBrightness) {
-    brightness = _min(UINT_MAX, brightness + 1);
+    brightness = _min(UINT8_MAX, brightness + 1);
+    Serial.print("Brightness increased to " + String(brightness));
   } else if (brightness > newBrightness) {
     brightness = _max(0, brightness - 1);
+    Serial.print("Brightness decreased to " + String(brightness));
   }
 
   FastLED.setBrightness(brightness);
 }
 
-void renderLeds(uint16_t packetSize, uint16_t startLed, uint16_t endLed) {
-  fillLeds(startLed, endLed - startLed, CRGB::Black);
+void renderLeds(uint16_t packetSize) {
+  // Client ID is stored in the top 4 bits.
+  uint8_t clientId = (packetBuffer[0] & 0b11110000) >> 4;
+
+  fillLeds(clientId, CRGB::Black);
   uint16_t packetLedCount = (packetSize - HEADER_SIZE) / BYTES_PER_LED;
 
-  for (uint16_t i = startLed; i < _min(startLed + packetLedCount, endLed); i++) {
-    uint16_t bufferIndex = HEADER_SIZE + ((i - startLed) * BYTES_PER_LED);
-    leds[i].setRGB(packetBuffer[bufferIndex], packetBuffer[bufferIndex + 1], packetBuffer[bufferIndex + 2]);
+  for (uint16_t i = 0; i < _min(packetLedCount, LED_COUNT); i++) {
+    uint16_t bufferIndex = HEADER_SIZE + (i * BYTES_PER_LED);
+    leds[clientId][i].setRGB(packetBuffer[bufferIndex], packetBuffer[bufferIndex + 1], packetBuffer[bufferIndex + 2]);
   }
 
   FastLED.show();
@@ -121,19 +126,21 @@ void connectToWiFi(const String ssid, const String pwd) {
 }
 
 void showStatus(CRGB statusColor) {
-  fillLeds(0, LED_COUNT, CRGB::Black);
-  for (uint8_t i = 0; i < STATUS_LED_COUNT; i++) {
-    leds[i] = statusColor;
+  for (uint8_t clientId = 0; clientId < STAGE_PROP_COUNT; clientId++) {
+    fillLeds(clientId, CRGB::Black);
+
+    for (uint8_t i = 0; i < STATUS_LED_COUNT; i++) {
+      leds[clientId][i] = statusColor;
+    }  
   }
+
   FastLED.show();
 }
 
-void fillLeds(uint16_t startLed, uint16_t endLed, CRGB color) {
-  for (uint16_t i = startLed; i < endLed; i++) {
-    leds[i] = color;
+void fillLeds(uint8_t clientId, CRGB color) {
+  for (uint8_t i = 0; i < LED_COUNT; i++) {
+    leds[clientId][i] = color;
   }
-
-  FastLED.show();
 }
 
 void WiFiEvent(WiFiEvent_t event) {
