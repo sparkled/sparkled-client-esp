@@ -1,6 +1,12 @@
 #include "constants.h"
 #include <ESP.h>
-#include <WiFi.h>
+
+#if defined(ESP8266)
+    #include <ESP8266WiFi.h>
+#elif defined(ESP32)
+    #include <WiFi.h>
+#endif
+
 #include <WiFiUdp.h>
 #include <FastLED.h>
 
@@ -109,7 +115,7 @@ void connectToWiFi(const String ssid, const String pwd) {
   showStatus(STATUS_CONNECTING);
 
   WiFi.disconnect(true);
-  WiFi.onEvent(WiFiEvent);
+  WiFi.onEvent(onWiFiEvent);
 
   #ifdef STATIC_IP_ADDRESS
   if (WiFi.config(IPAddress(STATIC_IP_ADDRESS), IPAddress(ROUTER_IP_ADDRESS), IPAddress(SUBNET_MASK), IPAddress(DNS_PRIMARY), IPAddress(DNS_SECONDARY))) {
@@ -143,26 +149,25 @@ void fillLeds(uint8_t clientId, CRGB color) {
   }
 }
 
-void WiFiEvent(WiFiEvent_t event) {
+void onWiFiEvent(WiFiEvent_t event) {
   switch (event) {
-    case SYSTEM_EVENT_STA_CONNECTED:
+    case EVENT_CONNECTED:
       Serial.println("Connected to network.");
       break;
-    case SYSTEM_EVENT_STA_GOT_IP:
+    case EVENT_GOT_IP:
       if (WiFi.localIP() == IPAddress(0, 0, 0, 0)) {
         Serial.println("Got IP Address of 0.0.0.0, waiting for proper IP address...");
       } else {
         if (!connected) {
           Serial.print("Connected with IP address ");
           Serial.println(WiFi.localIP());
-
-          udp.begin(WiFi.localIP(), SERVER_UDP_PORT);
+          udp.begin(SERVER_UDP_PORT);
           connected = true;
           lastSuccessfulPacketTime = millis();
         }
       }
       break;
-    case SYSTEM_EVENT_STA_DISCONNECTED:
+    case EVENT_DISCONNECTED:
       Serial.println("Lost network connection, attempting to reconnect...");
       connected = false;
       connectToWiFi(NETWORK_SSID, NETWORK_PASSWORD);
