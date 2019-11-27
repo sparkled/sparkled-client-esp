@@ -10,11 +10,14 @@
 #define SERVER_UDP_PORT 2812
 
 // Static IP configuration (optional)
- #define ROUTER_IP_ADDRESS IPAddress(192, 168, 0, 1)
- #define STATIC_IP_ADDRESS IPAddress(192, 168, 0, 3)
- #define SUBNET_MASK IPAddress(255, 255, 255, 0)
- #define DNS_PRIMARY IPAddress(1, 1, 1, 1)
- #define DNS_SECONDARY IPAddress(8, 8, 8, 8)
+#define ROUTER_IP_ADDRESS IPAddress(192, 168, 0, 1)
+#define STATIC_IP_ADDRESS IPAddress(192, 168, 0, 2)
+#define SUBNET_MASK IPAddress(255, 255, 255, 0)
+#define DNS_PRIMARY IPAddress(1, 1, 1, 1)
+#define DNS_SECONDARY IPAddress(8, 8, 8, 8)
+
+// Comment this out if you don't want over-the-air update capability.
+#define OTA_UPDATES_ENABLED
 
 // LED strip configuration
 #define STAGE_PROP_COUNT 1

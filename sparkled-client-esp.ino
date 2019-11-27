@@ -8,6 +8,11 @@
 #endif
 
 #include <WiFiUdp.h>
+
+#ifdef OTA_UPDATES_ENABLED
+    #include <ArduinoOTA.h>
+#endif
+
 #include <FastLED.h>
 
 // Shared application state
@@ -17,6 +22,7 @@ uint8_t packetBuffer[LED_BUFFER_SIZE];
 boolean connected = false;
 uint32_t lastSuccessfulPacketTime = millis();
 uint8_t brightness = UINT8_MAX;
+bool otaUpdating = false;
 
 void setup() {
   Serial.begin(115200);
@@ -36,6 +42,14 @@ void loop() {
   if (!connected) {
     return;
   }
+
+  #ifdef OTA_UPDATES_ENABLED
+  ArduinoOTA.handle();
+
+  if (otaUpdating) {
+    return;
+  }
+  #endif
 
   checkForNetworkFailure();
 
@@ -161,6 +175,18 @@ void onWiFiEvent(WiFiEvent_t event) {
         if (!connected) {
           Serial.print("Connected with IP address ");
           Serial.println(WiFi.localIP());
+
+          #ifdef OTA_UPDATES_ENABLED
+            ArduinoOTA
+              .onStart([]() {
+                otaUpdating = true;
+                Serial.println("Over-the-air update has started.");
+              });
+
+            ArduinoOTA.begin();
+            Serial.println("Over-the-air updater is listening.");
+          #endif
+
           udp.begin(SERVER_UDP_PORT);
           connected = true;
           lastSuccessfulPacketTime = millis();
