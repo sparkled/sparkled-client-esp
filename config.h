@@ -26,9 +26,6 @@
 // Stage prop configuration
 const String STAGE_PROP_CODES[STAGE_PROP_COUNT] = {"PROP_1"};
 
-// Animation configuration
-#define TARGET_FPS 60
-
 // ESP32 configuration
 #define CHIPSET WS2812B
 #define RGB_ORDER GRB

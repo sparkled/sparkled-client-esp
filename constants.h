@@ -5,18 +5,15 @@
 #include <FastLED.h>
 
 // Network constants
-#define PACKET_TIMEOUT_MS 50
+#define SUBSCRIBE_INTERVAL_MS 1000
 #define MAX_CONNECTION_LOSS_MS 5000
 
 // Command constants
-#define GET_FRAME_COMMAND "GF:"
+#define SUBSCRIBE_COMMAND "S:"
 
 // Status constants
 #define STATUS_LED_COUNT 3
 #define STATUS_CONNECTING CRGB::Orange
-
-// Animation constants
-#define MILLIS_PER_FRAME 1000 / TARGET_FPS
 
 // LED strip constants
 #define TOTAL_LED_COUNT STAGE_PROP_COUNT * LED_COUNT

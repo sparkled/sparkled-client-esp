@@ -20,8 +20,8 @@ WiFiUDP udp;
 CRGB leds[STAGE_PROP_COUNT][LED_COUNT];
 uint8_t packetBuffer[LED_BUFFER_SIZE];
 boolean connected = false;
-uint32_t lastSuccessfulPacketTime = millis();
-uint8_t brightness = UINT8_MAX;
+uint32_t lastSuccessfulPacketTime = 0;
+uint32_t lastSubscribeTime = 0;
 bool otaUpdating = false;
 
 void setup() {
@@ -53,13 +53,15 @@ void loop() {
 
   checkForNetworkFailure();
 
-  for (uint8_t i = 0; i < STAGE_PROP_COUNT; i++) {
-    requestFrame(STAGE_PROP_CODES[i], i);
+  if (lastSubscribeTime == 0 || ms - lastSubscribeTime > SUBSCRIBE_INTERVAL_MS) {
+    for (uint8_t i = 0; i < STAGE_PROP_COUNT; i++) {
+      subscribe(STAGE_PROP_CODES[i], i);
+    }
+
+    lastSubscribeTime = ms;
   }
 
-  while (millis() - ms < MILLIS_PER_FRAME) {
-    receiveFrame();
-  }
+  receiveFrame();
 }
 
 void checkForNetworkFailure() {
@@ -70,14 +72,14 @@ void checkForNetworkFailure() {
   }
 }
 
-void requestFrame(String stagePropCode, uint8_t clientId) {
+void subscribe(String stagePropCode, uint8_t clientId) {
   uint32_t ms = millis();
 
   if (!udp.beginPacket(SERVER_IP_ADDRESS, SERVER_UDP_PORT)) {
     Serial.println("beginPacket() failed.");
     return;
   }
-  udp.printf(String(GET_FRAME_COMMAND + stagePropCode + ":" + clientId).c_str());
+  udp.printf(String(SUBSCRIBE_COMMAND + stagePropCode + ":" + clientId).c_str());
   udp.endPacket();
 }
 
@@ -89,23 +91,13 @@ void receiveFrame() {
     udp.read(packetBuffer, LED_BUFFER_SIZE);
     adjustBrightness();
     renderLeds(packetSize);
-    lastSuccessfulPacketTime = millis(); 
+    lastSuccessfulPacketTime = millis();
   }
 }
 
 void adjustBrightness() {
   // Brightness is stored in the bottom 4 bits.
-  int16_t newBrightness = map(packetBuffer[0] & 0b00001111, 0, 15, 0, UINT8_MAX);
-
-  // The ESP32 core defines min() and max() with an underscore prefix to avoid code conflits.
-  if (brightness < newBrightness) {
-    brightness = _min(UINT8_MAX, brightness + 1);
-    Serial.print("Brightness increased to " + String(brightness));
-  } else if (brightness > newBrightness) {
-    brightness = _max(0, brightness - 1);
-    Serial.print("Brightness decreased to " + String(brightness));
-  }
-
+  uint8_t brightness = map(packetBuffer[0] & 0b00001111, 0, 15, 0, UINT8_MAX);
   FastLED.setBrightness(brightness);
 }
 
@@ -151,7 +143,7 @@ void showStatus(CRGB statusColor) {
 
     for (uint8_t i = 0; i < STATUS_LED_COUNT; i++) {
       leds[clientId][i] = statusColor;
-    }  
+    }
   }
 
   FastLED.show();
