@@ -16,20 +16,15 @@
 #define DNS_PRIMARY IPAddress(1, 1, 1, 1)
 #define DNS_SECONDARY IPAddress(8, 8, 8, 8)
 
-// Comment this out if you don't want over-the-air update capability.
+// Comment this out if you don't want over-the-air update capability
 #define OTA_UPDATES_ENABLED
 
 // LED strip configuration
-#define STAGE_PROP_COUNT 1
-#define LED_COUNT 150
-
-// Stage prop configuration
-const String STAGE_PROP_CODES[STAGE_PROP_COUNT] = {"PROP_1"};
-
-// ESP32 configuration
+#define LED_COUNT 300
 #define CHIPSET WS2812B
 #define RGB_ORDER GRB
-#define CLOCK_PIN -1 // Leave as -1 if you are using a clockless chipset.
-#define DATA_PIN 19
+#define CLOCK_PIN -1 // Leave as -1 if you are using a clockless chipset
+#define DATA_PIN 18
+const String STAGE_PROP_CODE = "PROP_1";
 
 #endif CONFIG_H

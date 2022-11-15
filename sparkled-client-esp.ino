@@ -1,4 +1,5 @@
 #include "constants.h"
+#include <Arduino.h>
 #include <ESP.h>
 
 #if defined(ESP8266)
@@ -17,7 +18,7 @@
 
 // Shared application state
 WiFiUDP udp;
-CRGB leds[STAGE_PROP_COUNT][LED_COUNT];
+CRGB leds[LED_COUNT];
 uint8_t packetBuffer[LED_BUFFER_SIZE];
 boolean connected = false;
 uint32_t lastSuccessfulPacketTime = 0;
@@ -28,9 +29,9 @@ void setup() {
   Serial.begin(115200);
 
   #if CLOCK_PIN == -1
-  FastLED.addLeds<CHIPSET, DATA_PIN, RGB_ORDER>(leds[0], TOTAL_LED_COUNT).setCorrection(TypicalSMD5050);
+  FastLED.addLeds<CHIPSET, DATA_PIN, RGB_ORDER>(leds, LED_COUNT).setCorrection(TypicalSMD5050);
   #else
-  FastLED.addLeds<CHIPSET, DATA_PIN, CLOCK_PIN, RGB_ORDER>(leds[0], TOTAL_LED_COUNT).setCorrection(TypicalSMD5050);
+  FastLED.addLeds<CHIPSET, DATA_PIN, CLOCK_PIN, RGB_ORDER>(leds, LED_COUNT).setCorrection(TypicalSMD5050);
   #endif
 
   connectToWiFi(NETWORK_SSID, NETWORK_PASSWORD);
@@ -54,10 +55,7 @@ void loop() {
   checkForNetworkFailure();
 
   if (lastSubscribeTime == 0 || ms - lastSubscribeTime > SUBSCRIBE_INTERVAL_MS) {
-    for (uint8_t i = 0; i < STAGE_PROP_COUNT; i++) {
-      subscribe(STAGE_PROP_CODES[i], i);
-    }
-
+    subscribe();
     lastSubscribeTime = ms;
   }
 
@@ -72,15 +70,15 @@ void checkForNetworkFailure() {
   }
 }
 
-void subscribe(String stagePropCode, uint8_t clientId) {
+void subscribe() {
   uint32_t ms = millis();
 
-  if (!udp.beginPacket(SERVER_IP_ADDRESS, SERVER_UDP_PORT)) {
-    Serial.println("beginPacket() failed.");
-    return;
+  if (udp.beginPacket(SERVER_IP_ADDRESS, SERVER_UDP_PORT)) {
+    udp.printf(String(SUBSCRIBE_COMMAND + STAGE_PROP_CODE).c_str());
+    udp.endPacket();
+  } else {
+    Serial.println("Failed to send subscription packet.");
   }
-  udp.printf(String(SUBSCRIBE_COMMAND + stagePropCode + ":" + clientId).c_str());
-  udp.endPacket();
 }
 
 void receiveFrame() {
@@ -91,6 +89,7 @@ void receiveFrame() {
     udp.read(packetBuffer, LED_BUFFER_SIZE);
     adjustBrightness();
     renderLeds(packetSize);
+ 
     lastSuccessfulPacketTime = millis();
   }
 }
@@ -102,15 +101,12 @@ void adjustBrightness() {
 }
 
 void renderLeds(uint16_t packetSize) {
-  // Client ID is stored in the top 4 bits.
-  uint8_t clientId = (packetBuffer[0] & 0b11110000) >> 4;
-
-  fillLeds(clientId, CRGB::Black);
+  fill_solid(leds, LED_COUNT, CRGB::Black);
   uint16_t packetLedCount = (packetSize - HEADER_SIZE) / BYTES_PER_LED;
 
   for (uint16_t i = 0; i < _min(packetLedCount, LED_COUNT); i++) {
     uint16_t bufferIndex = HEADER_SIZE + (i * BYTES_PER_LED);
-    leds[clientId][i].setRGB(packetBuffer[bufferIndex], packetBuffer[bufferIndex + 1], packetBuffer[bufferIndex + 2]);
+    leds[i].setRGB(packetBuffer[bufferIndex], packetBuffer[bufferIndex + 1], packetBuffer[bufferIndex + 2]);
   }
 
   FastLED.show();
@@ -138,21 +134,13 @@ void connectToWiFi(const String ssid, const String pwd) {
 }
 
 void showStatus(CRGB statusColor) {
-  for (uint8_t clientId = 0; clientId < STAGE_PROP_COUNT; clientId++) {
-    fillLeds(clientId, CRGB::Black);
+  fill_solid(leds, LED_COUNT, CRGB::Black);
 
-    for (uint8_t i = 0; i < STATUS_LED_COUNT; i++) {
-      leds[clientId][i] = statusColor;
-    }
+  for (uint8_t i = 0; i < STATUS_LED_COUNT; i++) {
+    leds[i] = statusColor;
   }
 
   FastLED.show();
-}
-
-void fillLeds(uint8_t clientId, CRGB color) {
-  for (uint8_t i = 0; i < LED_COUNT; i++) {
-    leds[clientId][i] = color;
-  }
 }
 
 void onWiFiEvent(WiFiEvent_t event) {
@@ -165,6 +153,7 @@ void onWiFiEvent(WiFiEvent_t event) {
         Serial.println("Got IP Address of 0.0.0.0, waiting for proper IP address...");
       } else {
         if (!connected) {
+          showStatus(STATUS_CONNECTED);
           Serial.print("Connected with IP address ");
           Serial.println(WiFi.localIP());
 

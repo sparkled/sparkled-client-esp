@@ -14,12 +14,12 @@
 // Status constants
 #define STATUS_LED_COUNT 3
 #define STATUS_CONNECTING CRGB::Orange
+#define STATUS_CONNECTED CRGB::Purple
 
 // LED strip constants
-#define TOTAL_LED_COUNT STAGE_PROP_COUNT * LED_COUNT
 #define BYTES_PER_LED 3
 #define HEADER_SIZE 1
-#define LED_BUFFER_SIZE HEADER_SIZE + BYTES_PER_LED * TOTAL_LED_COUNT
+#define LED_BUFFER_SIZE HEADER_SIZE + BYTES_PER_LED * LED_COUNT
 
 // Network event constants
 #if defined(ESP8266)
