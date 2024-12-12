@@ -95,9 +95,7 @@ void receiveFrame() {
 }
 
 void adjustBrightness() {
-  // Brightness is stored in the bottom 4 bits.
-  uint8_t brightness = map(packetBuffer[0] & 0b00001111, 0, 15, 0, UINT8_MAX);
-  FastLED.setBrightness(brightness);
+  FastLED.setBrightness(packetBuffer[0]);
 }
 
 void renderLeds(uint16_t packetSize) {
